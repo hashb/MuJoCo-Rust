@@ -19,7 +19,10 @@ impl Model {
     ///
     /// # Panics
     /// Panics if the xml is invalid or the file doesn't exist
-    pub fn from_xml(path: impl AsRef<std::path::Path>) -> Result<Self, String> {
+    pub fn from_xml(
+        path: impl AsRef<std::path::Path>,
+        ignore_error: bool,
+    ) -> Result<Self, String> {
         let path = path.as_ref();
         if !path.is_file() {
             return Err("File doesn't exist!".to_owned());
@@ -40,14 +43,17 @@ impl Model {
                 err_buf.len() as std::os::raw::c_int,
             )
         };
-        from_xml_helper(model_ptr, err_buf)
+        from_xml_helper(model_ptr, err_buf, ignore_error)
     }
 
     /// Loads a `Model` from an XML string
     ///
     /// # Panics
     /// Panics if the xml is invalid
-    pub fn from_xml_str(xml: impl AsRef<str>) -> Result<Self, String> {
+    pub fn from_xml_str(
+        xml: impl AsRef<str>,
+        ignore_error: bool,
+    ) -> Result<Self, String> {
         let xml = xml.as_ref();
         let filename = "from_xml_str";
         let filename_cstr = CString::new(filename).unwrap();
@@ -68,7 +74,7 @@ impl Model {
                 )
             };
             vfs.delete_file(filename);
-            from_xml_helper(model_ptr, err_buf)
+            from_xml_helper(model_ptr, err_buf, ignore_error)
         })
     }
 
@@ -171,11 +177,15 @@ impl Clone for Model {
 }
 
 /// Helper function for loading a model from xml
-fn from_xml_helper(model_ptr: *mut mjModel, err_buf: Vec<u8>) -> Result<Model, String> {
+fn from_xml_helper(
+    model_ptr: *mut mjModel,
+    err_buf: Vec<u8>,
+    ignore_error: bool,
+) -> Result<Model, String> {
     debug_assert_ne!(err_buf.len(), 0);
     let err_str = crate::helpers::convert_err_buf(err_buf);
 
-    if !err_str.is_empty() {
+    if !err_str.is_empty() && !ignore_error {
         return Err(err_str);
     }
     if model_ptr.is_null() {
@@ -206,7 +216,7 @@ mod tests {
     #[test]
     fn from_xml() {
         activate();
-        let m = Model::from_xml(&*SIMPLE_XML_PATH).unwrap();
+        let m = Model::from_xml(&*SIMPLE_XML_PATH, false).unwrap();
 
         // Check expected values
         check_expected_ids(&m);
@@ -215,7 +225,7 @@ mod tests {
     #[test]
     fn from_xml_str() {
         activate();
-        let model_xml = Model::from_xml_str(*SIMPLE_XML).unwrap();
+        let model_xml = Model::from_xml_str(*SIMPLE_XML, false).unwrap();
         // let model_file = Model::from_xml(&*SIMPLE_XML_PATH).unwrap();
         // assert_eq!(model_xml.to_vec(), model_file.to_vec());
         check_expected_ids(&model_xml);
@@ -224,7 +234,7 @@ mod tests {
     #[test]
     fn from_bytes() {
         activate();
-        let model_xml = Model::from_xml(&*SIMPLE_XML_PATH).unwrap(); // _str
+        let model_xml = Model::from_xml(&*SIMPLE_XML_PATH, false).unwrap(); // _str
         let model_xml_bytes = model_xml.to_vec();
         let model_from_bytes = Model::from_bytes(&model_xml_bytes);
         assert_eq!(model_from_bytes.to_vec(), model_xml_bytes);
@@ -233,7 +243,7 @@ mod tests {
     #[test]
     fn serialize() {
         activate();
-        let m = Model::from_xml(&*SIMPLE_XML_PATH).unwrap();
+        let m = Model::from_xml(&*SIMPLE_XML_PATH, false).unwrap();
         let serialized = m.to_vec();
         assert_eq!(serialized.len(), unsafe {
             mujoco_rs_sys::no_render::mj_sizeModel(m.ptr)
@@ -244,7 +254,7 @@ mod tests {
     #[test]
     fn name_to_id() {
         activate();
-        let m = Model::from_xml(&*SIMPLE_XML_PATH).unwrap();
+        let m = Model::from_xml(&*SIMPLE_XML_PATH, false).unwrap();
 
         // Check expected values
         check_expected_ids(&m);
