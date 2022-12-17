@@ -17,12 +17,34 @@ pub fn convert_err_buf(err_buf: Vec<u8>) -> String {
     });
     err_str.into_string().expect("`CString` was not UTF-8!")
 }
-pub struct Local<T>(T);
 
+pub(crate) struct Local<T>(T);
+
+/// Generic type for c float and double
 pub trait LocalFloat {
     fn to_f64(&self) -> f64;
     fn to_f32(&self) -> f32;
 }
+impl LocalFloat for &*mut Local<f32> {
+    fn to_f32(&self) -> f32 {
+        unsafe { (***self).0 }
+    }
+
+    fn to_f64(&self) -> f64 {
+        unsafe { (***self).0 as f64 }
+    }
+}
+
+impl LocalFloat for &*mut Local<f64> {
+    fn to_f32(&self) -> f32 {
+        unsafe { (***self).0 as f32 }
+    }
+
+    fn to_f64(&self) -> f64 {
+        unsafe { (***self).0 }
+    }
+}
+
 impl LocalFloat for Local<f32> {
     fn to_f32(&self) -> f32 {
         self.0
@@ -51,9 +73,15 @@ pub(crate) fn extract_mesh_attribute(
 ) -> Vec<[f32; 3]> {
     let mut points: Vec<[f32; 3]> = vec![];
 
-    let point_array = unsafe {
-        extract_vector_float_f32(array.add(offset * 3) as *mut Local<f32>, 3, count)
-    };
+    let point_array: Vec<f32> = extract_vector_float(
+        unsafe { array.add(offset * 3) } as *mut Local<f32>,
+        3,
+        count,
+    )
+    .iter()
+    .map(|e| e.to_f32())
+    .collect();
+
     for p in point_array.chunks(3) {
         let p: [f32; 3] = p.try_into().unwrap();
         points.push(p);
@@ -80,63 +108,21 @@ pub(crate) fn extract_indices(
     indices
 }
 
-/// Copy MuJoCo array into Vec<f64>
-pub(crate) fn extract_vector_float_f64<T>(
+/// Copy MuJoCo float/double array into Vec<T>
+pub(crate) fn extract_vector_float<T>(
     vec: *mut T,
     element_size: usize,
     n_entries: usize,
-) -> Vec<f64>
+) -> Vec<*mut T>
 where
     T: LocalFloat,
 {
-    let mut result_vec: Vec<f64> = Vec::new();
+    let mut result_vec: Vec<*mut T> = Vec::new();
 
-    unsafe {
-        let entries = vec;
-        for i in 0..n_entries {
-            for j in 0..element_size {
-                result_vec.push((*entries.add(i * element_size + j)).to_f64());
-            }
-        }
+    for i in 0..n_entries * element_size {
+        let entry = unsafe { vec.add(i) };
+        result_vec.push(entry);
     }
 
     result_vec
-}
-
-/// Copy MuJoCo array into Vec<f64>
-pub(crate) fn extract_vector_float_f32<T>(
-    vec: *mut T,
-    element_size: usize,
-    n_entries: usize,
-) -> Vec<f32>
-where
-    T: LocalFloat,
-{
-    let mut result_vec: Vec<f32> = Vec::new();
-
-    unsafe {
-        let entries = vec;
-        for i in 0..n_entries {
-            for j in 0..element_size {
-                result_vec.push((*entries.add(i * element_size + j)).to_f32());
-            }
-        }
-    }
-
-    result_vec
-}
-
-/// Get String from an pointer to a null-terminated char array pointer
-pub(crate) fn extract_string(array: *mut i8) -> String {
-    let mut name = String::new();
-    let mut i = 0;
-    loop {
-        let char = unsafe { *array.offset(i) } as i32;
-        if char == 0 {
-            break;
-        }
-        name.push(char::from_u32(char as u32).unwrap());
-        i += 1;
-    }
-    name
 }

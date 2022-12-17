@@ -1,5 +1,7 @@
+use nalgebra::{Quaternion, Vector3, Vector6};
+
 use crate::{
-    helpers::{extract_vector_float_f64, Local},
+    helpers::{extract_vector_float, Local, LocalFloat},
     Model, State,
 };
 
@@ -23,15 +25,12 @@ impl Simulation {
             return;
         }
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..self.model.nu() {
-            unsafe {
-                *raw_vec.add(i) = control[i];
-            }
+        for (i, item) in control.iter().enumerate().take(self.model.nu()) {
+            unsafe { *raw_vec.add(i) = *item };
         }
     }
 
-    /// Evaulate constraint forces ans sensors
+    /// Evaulate constraint forces and sensors
     pub fn evaluate_sensors(&self) {
         unsafe {
             mujoco_rs_sys::no_render::mj_sensorPos(self.model.ptr(), self.state.ptr());
@@ -48,18 +47,24 @@ impl Simulation {
     }
 
     /// Returns positions of bodies in inertial frame
-    pub fn xpos(&self) -> Vec<[f64; 3]> {
+    pub fn xpos(&self) -> Vec<Vector3<f64>> {
         let mj_data = self.state.ptr();
         let raw_vec = unsafe { (*mj_data).xpos };
 
-        let raw_xpos =
-            extract_vector_float_f64(raw_vec as *mut Local<f64>, 3, self.model.ngeom());
+        let raw_xpos: Vec<f64> =
+            extract_vector_float(raw_vec as *mut Local<f64>, 3, self.model.ngeom())
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
 
-        let mut xpos: Vec<[f64; 3]> = Vec::new();
+        let mut xpos: Vec<Vector3<f64>> = Vec::new();
 
         for i in 0..self.model.ngeom() {
-            let entry: [f64; 3] =
-                [raw_xpos[i * 3], raw_xpos[i * 3 + 1], raw_xpos[i * 3 + 2]];
+            let entry = Vector3::<f64>::new(
+                raw_xpos[i * 3],
+                raw_xpos[i * 3 + 1],
+                raw_xpos[i * 3 + 2],
+            );
             xpos.push(entry);
         }
 
@@ -67,20 +72,23 @@ impl Simulation {
     }
 
     /// Returns rotations of bodies
-    pub fn xquat(&self) -> Vec<[f64; 4]> {
+    pub fn xquat(&self) -> Vec<Quaternion<f64>> {
         let mj_data = self.state.ptr();
         let raw_vec = unsafe { (*mj_data).xquat };
-        let raw_quat =
-            extract_vector_float_f64(raw_vec as *mut Local<f64>, 4, self.model.ngeom());
-        let mut xquat: Vec<[f64; 4]> = Vec::new();
+        let raw_quat: Vec<f64> =
+            extract_vector_float(raw_vec as *mut Local<f64>, 4, self.model.ngeom())
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
+        let mut xquat: Vec<Quaternion<f64>> = Vec::new();
 
         for i in 0..self.model.ngeom() {
-            let entry: [f64; 4] = [
+            let entry = Quaternion::<f64>::new(
                 raw_quat[i * 4],
                 raw_quat[i * 4 + 1],
                 raw_quat[i * 4 + 2],
                 raw_quat[i * 4 + 3],
-            ];
+            );
             xquat.push(entry);
         }
 
@@ -118,22 +126,25 @@ impl Simulation {
     }
 
     /// Returns contracts
-    pub fn cfrc_ext(&self) -> Vec<[f64; 6]> {
+    pub fn cfrc_ext(&self) -> Vec<Vector6<f64>> {
         let mj_data = self.state.ptr();
         let raw_vec = unsafe { (*mj_data).cfrc_ext };
-        let raw_quat =
-            extract_vector_float_f64(raw_vec as *mut Local<f64>, 6, self.model.nbody());
-        let mut cfrc_ext: Vec<[f64; 6]> = Vec::new();
+        let raw_quat: Vec<f64> =
+            extract_vector_float(raw_vec as *mut Local<f64>, 6, self.model.nbody())
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
+        let mut cfrc_ext: Vec<Vector6<f64>> = Vec::new();
 
         for i in 0..self.model.nbody() {
-            let entry: [f64; 6] = [
+            let entry = Vector6::<f64>::new(
                 raw_quat[i * 6],
                 raw_quat[i * 6 + 1],
                 raw_quat[i * 6 + 2],
                 raw_quat[i * 6 + 3],
                 raw_quat[i * 6 + 4],
                 raw_quat[i * 6 + 5],
-            ];
+            );
             cfrc_ext.push(entry);
         }
 

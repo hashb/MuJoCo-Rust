@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use crate::{Geom, GeomType};
 
 use itertools::Itertools;
+use nalgebra::{Vector3, Quaternion};
 
 #[derive(Debug, Clone)]
 pub struct Body {
@@ -11,8 +12,8 @@ pub struct Body {
     pub parent_id: i32,
     pub geom_n: i32,
     pub geom_addr: i32,
-    pub pos: [f64; 3],
-    pub quat: [f64; 4],
+    pub pos: Vector3<f64>,
+    pub quat: Quaternion<f64>,
 }
 
 impl Body {

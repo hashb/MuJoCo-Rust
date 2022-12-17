@@ -6,13 +6,15 @@ use crate::VFS;
 use crate::geom::geom_type_from;
 use crate::helpers::extract_indices;
 use crate::helpers::extract_mesh_attribute;
-use crate::helpers::extract_string;
-use crate::helpers::extract_vector_float_f64;
+use crate::helpers::extract_vector_float;
 use crate::helpers::Local;
+use crate::helpers::LocalFloat;
 
 pub use crate::re_exports::ObjType;
 
 use mujoco_rs_sys::no_render::mjModel;
+use nalgebra::Quaternion;
+use nalgebra::Vector3;
 
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -333,13 +335,18 @@ impl Model {
 
             // metadata
             let mesh_name_idx = unsafe { *mj_model.name_meshadr.add(i) as usize };
-            let name = unsafe { extract_string(mj_model.names.add(mesh_name_idx)) };
+            let name = unsafe {
+                CStr::from_ptr(mj_model.names.add(mesh_name_idx))
+                    .to_str()
+                    .to_owned()
+                    .unwrap()
+            };
 
             let mujoco_mesh = Mesh {
                 vertices,
                 normals,
                 indices,
-                name,
+                name: String::from(name),
             };
 
             meshes.push(mujoco_mesh);
@@ -357,13 +364,25 @@ impl Model {
         let meshes = self.meshes();
 
         let body_pos_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.geom_pos as *mut Local<f64>, 3, n_geom);
+            extract_vector_float(mj_model.geom_pos as *mut Local<f64>, 3, n_geom)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
         let body_quat_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.geom_quat as *mut Local<f64>, 4, n_geom);
+            extract_vector_float(mj_model.geom_quat as *mut Local<f64>, 4, n_geom)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
         let body_size_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.geom_size as *mut Local<f64>, 4, n_geom);
+            extract_vector_float(mj_model.geom_size as *mut Local<f64>, 4, n_geom)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
         let body_rgba_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.geom_rgba as *mut Local<f32>, 4, n_geom);
+            extract_vector_float(mj_model.geom_rgba as *mut Local<f32>, 4, n_geom)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
 
         for i in 0..n_geom {
             // position
@@ -401,6 +420,13 @@ impl Model {
             // name
             let geom_name_idx = unsafe { *mj_model.name_geomadr.add(i) as usize };
 
+            let name = unsafe {
+                CStr::from_ptr(mj_model.names.add(geom_name_idx))
+                    .to_str()
+                    .to_owned()
+                    .unwrap()
+            };
+
             let geom_body = unsafe {
                 Geom {
                     id: i as i32,
@@ -408,12 +434,12 @@ impl Model {
                     body_id: *mj_model.geom_bodyid.add(i),
                     geom_group: *mj_model.geom_group.add(i),
                     geom_contype: *mj_model.geom_contype.add(i),
-                    pos: pos_array,
-                    quat: quat_array,
-                    size: size_array,
+                    pos: Vector3::from(pos_array),
+                    quat: Quaternion::from(quat_array),
+                    size: Vector3::from(size_array),
                     color: color_array,
                     mesh,
-                    name: extract_string(mj_model.names.add(geom_name_idx)),
+                    name: String::from(name),
                 }
             };
 
@@ -429,14 +455,25 @@ impl Model {
         let n_body = self.nbody();
 
         let body_pos_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.body_pos as *mut Local<f64>, 3, n_body);
+            extract_vector_float(mj_model.body_pos as *mut Local<f64>, 3, n_body)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
         let body_quat_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.body_quat as *mut Local<f64>, 4, n_body);
-
+            extract_vector_float(mj_model.body_quat as *mut Local<f64>, 4, n_body)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
         let _body_ipos_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.body_ipos as *mut Local<f64>, 3, n_body);
+            extract_vector_float(mj_model.body_ipos as *mut Local<f64>, 3, n_body)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
         let _body_iquat_vec: Vec<f64> =
-            extract_vector_float_f64(mj_model.body_iquat as *mut Local<f64>, 4, n_body);
+            extract_vector_float(mj_model.body_iquat as *mut Local<f64>, 4, n_body)
+                .iter()
+                .map(|e| e.to_f64())
+                .collect();
 
         let mut bodies: Vec<Body> = Vec::new();
         for i in 0..n_body {
@@ -453,15 +490,22 @@ impl Model {
             // metadata
             let name_idx = unsafe { *mj_model.name_bodyadr.add(i) as usize };
 
+            let name = unsafe {
+                CStr::from_ptr(mj_model.names.add(name_idx))
+                    .to_str()
+                    .to_owned()
+                    .unwrap()
+            };
+
             let geom_body = unsafe {
                 Body {
                     id: i as i32,
                     parent_id: *mj_model.body_parentid.add(i),
                     geom_n: *mj_model.body_geomnum.add(i),
                     geom_addr: *mj_model.body_geomadr.add(i),
-                    pos: pos_array,
-                    quat: quat_array,
-                    name: extract_string(mj_model.names.add(name_idx)),
+                    pos: Vector3::from(pos_array),
+                    quat: Quaternion::from(quat_array),
+                    name: String::from(name),
                 }
             };
 

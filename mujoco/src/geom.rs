@@ -1,3 +1,5 @@
+use nalgebra::{Quaternion, Vector3};
+
 use crate::Mesh;
 
 use crate::re_exports::GeomType;
@@ -23,9 +25,9 @@ pub struct Geom {
     pub name: String,
     pub geom_type: GeomType,
     pub body_id: i32,
-    pub pos: [f64; 3],
-    pub quat: [f64; 4],
-    pub size: [f64; 3],
+    pub pos: Vector3<f64>,
+    pub quat: Quaternion<f64>,
+    pub size: Vector3<f64>,
     pub color: [f32; 4],
     pub mesh: Option<Mesh>,
     pub geom_group: i32,
