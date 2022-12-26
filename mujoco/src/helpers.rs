@@ -1,6 +1,8 @@
 use std::convert::TryInto;
 use std::ffi::CString;
 
+use nalgebra::Quaternion;
+
 pub fn convert_err_buf(err_buf: Vec<u8>) -> String {
     let err_str = CString::new(err_buf).unwrap_or_else(|e| {
         let nul_pos = e.nul_position();
@@ -125,4 +127,8 @@ where
     }
 
     result_vec
+}
+
+pub(crate) fn create_quat(quat: [f64; 4]) -> Quaternion<f64> {
+    Quaternion::new(quat[1], quat[2], quat[3], quat[0])
 }

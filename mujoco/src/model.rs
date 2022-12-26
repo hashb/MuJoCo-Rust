@@ -4,6 +4,7 @@ use crate::Mesh;
 use crate::VFS;
 
 use crate::geom::geom_type_from;
+use crate::helpers::create_quat;
 use crate::helpers::extract_indices;
 use crate::helpers::extract_mesh_attribute;
 use crate::helpers::extract_vector_float;
@@ -13,7 +14,6 @@ use crate::helpers::LocalFloat;
 pub use crate::re_exports::ObjType;
 
 use mujoco_rs_sys::no_render::mjModel;
-use nalgebra::Quaternion;
 use nalgebra::Vector3;
 
 use std::ffi::CStr;
@@ -435,7 +435,7 @@ impl Model {
                     geom_group: *mj_model.geom_group.add(i),
                     geom_contype: *mj_model.geom_contype.add(i),
                     pos: Vector3::from(pos_array),
-                    quat: Quaternion::from(quat_array),
+                    quat: create_quat(quat_array),
                     size: Vector3::from(size_array),
                     color: color_array,
                     mesh,
@@ -504,7 +504,7 @@ impl Model {
                     geom_n: *mj_model.body_geomnum.add(i),
                     geom_addr: *mj_model.body_geomadr.add(i),
                     pos: Vector3::from(pos_array),
-                    quat: Quaternion::from(quat_array),
+                    quat: create_quat(quat_array),
                     name: String::from(name),
                 }
             };
